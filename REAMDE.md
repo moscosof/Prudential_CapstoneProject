@@ -9,8 +9,8 @@ Classification Tree and Random Forest method for the analysis.  I decided to add
 that is set to 1 when Response = 8. Otherwise Approved = 0.  I could predict ‘Approved’ using Logistic Regression and figure
 out which independent variables are significant.<br><br>
 
-R code sources are located at   https://github.com/moscosof/Prudential_CaptsoneProject<br><br>
-
+R code sources are located at https://github.com/moscosof/Prudential_CapstoneProject
+<br><br>
 Reference for details in R code output in html format:<br>
 Classification Tree:    https://moscosof.github.io/Prudential_CapstoneProject/ClassTree.html<br>
 Random Forest:          https://moscosof.github.io/Prudential_CapstoneProject/RandomForest.html<br>
