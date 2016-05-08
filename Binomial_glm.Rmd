@@ -1,0 +1,272 @@
+---
+title: "Prudential - Response: Binomial - Method: glm"
+author: "Francia Moscoso"
+date: "April 29, 2016"
+output: html_document
+---
+<br>
+<br>
+**Logistic Regression - binomial approach.**
+<br>
+<br>
+```{r LoadLib, message=F, warning=F}
+library(dplyr)     
+library(corrplot) 
+library(ggplot2)
+library(gridExtra)
+library(MASS)
+library(ROCR)
+library(caTools)
+```
+<br>
+<br>
+**Function that populates missing values with the median**
+```{r comment="", echo=TRUE}
+manage_na <- function(tempo)
+{
+  for(i in 1:ncol(tempo))
+  {
+    if(is.numeric(tempo[,i]))
+    {
+      tempo[is.na(tempo[,i]),i] <- median(tempo[!is.na(tempo[,i]),i])
+    }
+  }
+  tempo
+}
+```
+<br>
+<br>
+**Loading Data Sets**
+```{r comment="", echo=TRUE}
+# Working Directory
+setwd("~/SprintboardProject/PrudentialIns/Binomial_glm") 
+
+train <- read.csv("../DataSets/train.csv", header = TRUE)
+test <-  read.csv("../DataSets/test.csv", header = TRUE)
+```
+<br>
+<br>
+**create a new column "Approved" to indicate that the application has a max value of 8 or not. Approved = 1 only when Response = 8. This new variable "Approved" will allow to use 'glm' method where the dependent variable needs to be binary.**
+```{r comment="", echo=TRUE}
+
+train$Approved  <- 0
+train$Approved[train$Response==8]  <- 1   # Approved = 1 when train$Response = 8
+
+# Approved values
+table(train$Approved)
+```
+<br>
+<br>
+**Splitting data with ratio 75/25.**
+```{r comment="", echo=TRUE}
+set.seed(3000)
+# 75% of data in Training set
+split <- sample.split(train$Response, SplitRatio = 0.75)
+
+#Splitting data 
+trainLog <- subset(train, split==TRUE)
+testLog  <- subset(train, split==FALSE)
+```
+<br>
+<br>
+**Analyze dependent variable trainLog Approved** 
+```{r comment="", echo=TRUE}
+nrow(trainLog) 
+
+table(trainLog$Response)
+
+table(trainLog$Approved)
+
+hist(trainLog$Approved, main="Histogram", prob=T, breaks = 8,col="blue")
+
+```
+<br>
+<br>
+**Populate trainLog missing values with the median**
+```{r comment="", echo=TRUE}
+trainLog <- manage_na(trainLog[,-c(1)])     #   Except columns 1 (ID)    
+
+testLog <- manage_na(testLog[,-c(1)])
+
+```
+<br>
+<br>
+**Alphabetic Categorical variable in the trainLog data set: Product_Info_2.**
+**Getting the frequency** 
+```{r comment="", echo=TRUE}
+ProductInfo2 <- data.frame(table(trainLog$Product_Info_2)) 
+ProductInfo2_Sorted <- ProductInfo2 %>% arrange(desc(Freq))
+head(ProductInfo2_Sorted)
+```
+<b>
+<b>
+**Summarize the categorical variable Product_Info_2 by Approved value (0,1)**
+```{r comment="", echo=TRUE}
+trainLog$Approved <- as.factor(trainLog$Approved)
+ProductInfo2 <- trainLog %>% 
+                 group_by(Approved,Product_Info_2) %>% summarise(Tot_Count= n())
+```
+<br>
+<br>
+**Plot the count of Product_Info_2 by Approved value.**
+```{r comment="", echo=TRUE}
+ggplot(ProductInfo2, aes(x=Product_Info_2, y =Tot_Count)) +
+       facet_wrap(~Approved) + geom_jitter(alpha=1/2, position=position_jitter(h=0))
+```
+<br>
+<br>
+**Approved ratio**
+```{r comment="", echo=TRUE}
+table(trainLog$Approved)
+
+# Percentage of Approved observations (Response=8)
+table(trainLog$Approved)[2]/nrow(trainLog)
+```
+<br>
+<br>
+**We need a baseline method to compare our predictions. In this case, we can say that 14,617 out of 44,536 obs were Approved (Response=8)in our training data set. Therefore, our base line method has an accuracy of 32.8% and that is what we will try to beat with a logistic regression model.**
+**The AIC value was improved by removing variables that were not significant in the model:**
+```{r comment="", echo=TRUE}
+trainFit = glm(Approved ~ Product_Info_1 + Product_Info_2 + 
+                          Product_Info_4 + Product_Info_5 +  
+                          InsuredInfo_2  + InsuredInfo_4  +
+                          InsuredInfo_5  + InsuredInfo_6  + InsuredInfo_7 + 
+                          Insurance_History_1 + Insurance_History_2 +  
+                          Family_Hist_1 + Family_Hist_3 +
+                          Family_Hist_4 + Family_Hist_5 +
+                          Medical_History_3 +
+                          Medical_History_4  + Medical_History_5 + 
+                          Medical_History_7  + Medical_History_10 +  
+                          Medical_History_13 + Medical_History_14 + 
+                          Medical_History_15 +
+                          Medical_History_17 + Medical_History_18 +
+                          Medical_History_20 + Medical_History_23 +
+                          Medical_History_24 + Medical_History_30 +
+                          Medical_History_31 + Medical_History_32 +  
+                          Medical_History_39 + Medical_History_40 +     
+                          Medical_Keyword_3  + Medical_Keyword_12  +
+                          Medical_Keyword_15 + Medical_Keyword_22  +    
+                          Ht + Wt +  Ins_Age, 
+                          data = trainLog, family=binomial)
+
+summary(trainFit)
+```
+Tne model created dummy variables for the categorical variable Product_Info_2.
+<br>
+<br>
+**Compute the average prediction for each outcome**
+```{r comment="", echo=TRUE}
+predictTrain = predict(trainFit, type="response")
+
+# This will compute the average prediction for each outcome:
+tapply(predictTrain, trainLog$Approved,mean)
+ 
+summary(predictTrain)
+
+write.csv(predictTrain, "predPrudentialResp.csv", row.names = T)
+write.csv(trainLog$Approved, "predPrudentialAppr.csv", row.names = T)
+```
+<br>
+<br>
+**Predictions with diffent Thresholds**<br>
+**Threshold = 0.5**<br>
+```{r comment="", echo=TRUE}
+ConfusionMatrix <- table(trainLog$Approved,predictTrain > 0.5)
+ConfusionMatrix
+
+#Sensitivity
+True_Positive_Rate = ConfusionMatrix[2,2] / (ConfusionMatrix[2,1] + ConfusionMatrix[2,2])
+True_Positive_Rate
+
+False_Positive_Error_Rate = ConfusionMatrix[1,2] / (ConfusionMatrix[1,1] + ConfusionMatrix[1,2])
+False_Positive_Error_Rate
+
+Specificity  <- ConfusionMatrix[1,1] / (ConfusionMatrix[1,1] + ConfusionMatrix[1,2])
+Specificity 
+
+```
+<br>
+<br>
+**Threshold = 0.7**<br>
+```{r comment="", echo=TRUE}
+ConfusionMatrix <- table(trainLog$Approved,predictTrain > 0.7)
+ConfusionMatrix
+
+#Sensitivity
+True_Positive_Rate = ConfusionMatrix[2,2] / (ConfusionMatrix[2,1] + ConfusionMatrix[2,2])
+True_Positive_Rate
+
+False_Positive_Error_Rate = ConfusionMatrix[1,2] / (ConfusionMatrix[1,1] + ConfusionMatrix[1,2])
+False_Positive_Error_Rate
+
+Specificity  <- ConfusionMatrix[1,1] / (ConfusionMatrix[1,1] + ConfusionMatrix[1,2])
+Specificity
+```
+<br>
+<br>
+**Threshold = 0.2**<br>
+```{r comment="", echo=TRUE}
+ConfusionMatrix <- table(trainLog$Approved,predictTrain > 0.2)
+ConfusionMatrix
+
+#Sensitivity
+True_Positive_Rate = ConfusionMatrix[2,2] / (ConfusionMatrix[2,1] + ConfusionMatrix[2,2])
+True_Positive_Rate
+
+False_Positive_Error_Rate = ConfusionMatrix[1,2] / (ConfusionMatrix[1,1] + ConfusionMatrix[1,2])
+False_Positive_Error_Rate
+
+Specificity  <- ConfusionMatrix[1,1] / (ConfusionMatrix[1,1] + ConfusionMatrix[1,2])
+Specificity
+```
+<br>
+<br>
+**Which Threshold to pick?**<br>
+After calculating the Sensvity and Specificity with Threshold 0.5, 0.7 and 0.2, I would pick a Threshold of 0.2 because I would like to have a high True Positive Rate while having a low False Positive Error Rate.<br> 
+<br>
+<br>
+**ROC Curve (Receiver Operator Characteristic) **
+```{r}
+ROCRpred = prediction(predictTrain,trainLog$Approved)
+
+ROCRperf = performance(ROCRpred, "tpr", "fpr")
+
+plot(ROCRperf)
+
+plot(ROCRperf, colorsize=TRUE)
+```
+<br>
+<br>
+**Making predictions on testLog data set**
+```{r comment="", echo=TRUE}
+dim(testLog)
+
+predictTest = predict(trainFit, type="response", newdata = testLog)
+
+summary(predictTest)
+
+```
+<br>
+<br>
+**Calculate accuracy of the model**
+```{r comment="", echo=TRUE}
+ConfusionMatrix <- table(testLog$Approved,predictTest > 0.2)
+ConfusionMatrix
+
+Accuracy <- (ConfusionMatrix[1,1] + ConfusionMatrix[2,2]) / nrow(testLog)
+Accuracy
+
+False_Positive_Error_Rate = ConfusionMatrix[1,2] / (ConfusionMatrix[1,1] + ConfusionMatrix[1,2])
+False_Positive_Error_Rate
+
+#Sensitivity
+True_Positive_Rate = ConfusionMatrix[2,2] / (ConfusionMatrix[2,1] + ConfusionMatrix[2,2])
+True_Positive_Rate
+
+```
+**Conclusion:**<br>
+The logistic model can accurately predict a **binary** output with the variable Approved to indicate the highest score (Approved = 1 when Response = 8). A Threshold of **0.2** gives a high True Positive Rate while keeping a low False Positive Error Rate.
+<br>
+<br>
+<br>
+<br>

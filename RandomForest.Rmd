@@ -1,0 +1,106 @@
+---
+title: "Prudential - Random Forest"
+author: "Francia Moscoso"
+date: "April 29, 2016"
+output: html_document
+---
+
+**Random Forest**
+```{r LoadLib, message=F, warning=F}
+library(dplyr)     
+library(ggplot2)
+library(gridExtra)
+library(randomForest)
+library(caTools)
+```
+<br>
+<br>
+**Function that populates missing values with the median**    
+```{r comment="", echo=TRUE}
+manage_na <- function(tempo)
+{
+  for(i in 1:ncol(tempo))
+  {
+    if(is.numeric(tempo[,i]))
+    {
+      tempo[is.na(tempo[,i]),i] <- median(tempo[!is.na(tempo[,i]),i])
+    }
+  }
+  tempo
+}
+```
+<br>
+<br>
+**Loading Data Sets**
+```{r comment="", echo=TRUE}
+# Working Directory
+setwd("~/SprintboardProject/PrudentialIns/RandomForest") 
+
+train <- read.csv("../DataSets/train.csv", header = TRUE)
+test <-  read.csv("../DataSets/test.csv", header = TRUE)
+```
+<br>
+<br>
+**Splitting data with ratio 75/25.**
+```{r comment="", echo=TRUE}
+set.seed(3000)
+# 75% of data in Training set
+split <- sample.split(train$Response, SplitRatio = 0.75)
+
+#Splitting data 
+trainLog <- subset(train, split==TRUE)
+testLog  <- subset(train, split==FALSE)
+
+dim(trainLog)
+dim(testLog)
+
+```
+<br>
+**Analyze dependent variable Train Response** 
+```{r comment="", echo=TRUE}
+
+summary(trainLog$Response)
+
+table(trainLog$Response)
+
+```
+<br>
+**Populate missing values with the median**
+```{r comment="", echo=TRUE}
+trainLog <- manage_na(trainLog[,-c(1)])     #   Except columns 1 (ID)    
+
+testLog  <- manage_na(testLog[,-c(1)])
+
+```
+<br>
+<br>
+**Random Forest**
+```{r comment="", echo=TRUE}
+ 
+#randomForest does not run with na values
+fit <- randomForest(Response ~ ., 
+                   nodesize = 25, ntree = 200, data=trainLog)
+print(fit) # view results 
+importance(fit) # importance of each predictor
+```
+<br>
+<br>
+**Making Predictions on tesLog**
+```{r comment="", echo=TRUE}
+dim(testLog)
+predictForest <- predict(fit, newdata = testLog )
+
+```
+<br>
+<br>
+**Evaluating the model**
+```{r comment="", echo=TRUE}
+predictForestRound <- round(predictForest,0)
+
+table(testLog$Response)
+table(predictForestRound)
+table(testLog$Response, predictForestRound)
+```
+<br>
+<br>
+<br>

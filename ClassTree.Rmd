@@ -1,0 +1,155 @@
+---
+title: " Classification Tree"
+author: "Francia Moscoso"
+date: "April 29, 2016"
+output: html_document
+---
+<br>
+<br>
+**Classification Tree (na values are allowed so we don't need to populate missing values**
+<br>
+<br>
+```{r LoadLib, message=F, warning=F}
+library(dplyr)     
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+library(party)
+library(caTools)
+```
+<br>
+<br>
+**Loading Data Sets**
+```{r comment="", echo=TRUE}
+# Working Directory
+setwd("~/SprintboardProject/PrudentialIns/ClassTree") 
+
+train <- read.csv("../DataSets/train.csv", header = TRUE)
+test <-  read.csv("../DataSets/test.csv", header = TRUE)
+```
+<br>
+<br>
+**Splitting data with ratio 75/25.**
+```{r}
+set.seed(3000)
+# 75% of data in Training set
+split <- sample.split(train$Response, SplitRatio = 0.75)
+
+#Splitting data 
+trainLog <- subset(train, split==TRUE)
+testLog  <- subset(train, split==FALSE)
+
+train <- trainLog
+
+```
+<br>
+<br>
+**Analyze dependent variable Train Response** 
+```{r comment="", echo=TRUE}
+nrow(train) 
+
+summary(train$Response)
+
+table(train$Response)
+
+# Add a Normal Curve  
+TrainResp <- train$Response
+h<-hist(TrainResp, breaks=8, col="red", xlab="Response", 
+        main="Histogram with Normal Curve") 
+xfit<-seq(min(TrainResp),max(TrainResp),length=8) 
+yfit<-dnorm(xfit,mean=mean(TrainResp),sd=sd(TrainResp)) 
+yfit <- yfit*diff(h$mids[1:2])*length(TrainResp) 
+lines(xfit, yfit, col="blue", lwd=2)
+```
+<br>
+<br>
+**Classification Tree Modeling via rpart**
+```{r comment="", echo=TRUE}
+# grow tree 
+fit <- rpart(Response ~ ., method="class", data=train)
+
+printcp(fit) # display the results 
+plotcp(fit)  # visualize cross-validation results 
+summary(fit) # detailed summary of splits
+
+# create additional plots 
+par(mfrow=c(1,2)) # two plots on one page 
+rsq.rpart(fit) # visualize cross-validation results 
+
+
+```
+<br>
+<br>
+**Plot the tree**
+```{r comment="", echo=TRUE}
+
+plot(fit, uniform=TRUE,
+  	main="Classification Tree")
+text(fit, use.n=TRUE, all=TRUE, cex=.90)
+# prp function provides clear view of the tree, much better than previous graphic
+prp(fit)
+
+# create attractive postscript plot of tree     # ps is an Adobe extension file
+#post(fit, file = "./tree_graphic.ps", 
+#  	title = "Classification Tree")
+```
+<br>
+<br>
+**Prune the tree** Prune back the tree to avoid overfitting the data. Typically, you will want to select a tree size that minimizes the cross-validated error, the xerror column printed by printcp().
+```{r comment="", echo=TRUE}
+pfit<- prune(fit, cp=   fit$cptable[which.min(fit$cptable[,"xerror"]),"CP"])
+
+printcp(pfit) # display the results
+
+```
+<br>
+<btr>
+**Plot the pruned tree**
+```{r comment="", echo=TRUE}
+# plot the pruned tree 
+plot(pfit, uniform=TRUE, 
+  	main="Pruned Classification Tree")
+text(pfit, use.n=TRUE, all=TRUE, cex=.85)
+
+
+# The pruned tree is exactly the same as the original. In other words, prunning the tree did not
+# make any difference in the model
+prp(pfit)
+```
+<br>
+<btr>
+**Predicting on testLog data set.**
+```{r comment="", echo=TRUE}
+#dimension of testLog data set
+dim(testLog)
+
+pfit.predict = predict(pfit, newdata = testLog, type = "class")
+
+table(pfit.predict)
+```
+<br>
+<br>
+**Evaluate the model by calculating the Sum of Square Errors.**
+```{r comment="", echo=TRUE}
+#Prediction vs Actual
+pfit.sse = sum((as.numeric(pfit.predict) - testLog$Response)^2)
+pfit.sse
+```
+<br>
+<br>
+**Calculate accuracy to evaluate the model.**
+```{r comment="", echo=TRUE}
+
+table(pfit.predict)
+
+
+table(testLog$Response)
+
+
+Confusion_Matrix <- table(testLog$Response, as.numeric(pfit.predict))
+
+Confusion_Matrix
+```
+<br>
+<br>
+<br>
