@@ -15,7 +15,7 @@ Slide Deck            https://github.com/moscosof/Prudential_CapstoneProject/blo
 Github Code           https://github.com/moscosof/Prudential_CapstoneProject<br>
 <br>
 <br>
-Reference for details in R code output in html format:<br>
+Reference to R code output in html format:<br>
 Classification Tree:    https://moscosof.github.io/Prudential_CapstoneProject/ClassTree.html<br>
 Random Forest:          https://moscosof.github.io/Prudential_CapstoneProject/RandomForest.html<br>
 Logistic Regression:    https://moscosof.github.io/Prudential_CapstoneProject/Binomial_glm.html<br>
