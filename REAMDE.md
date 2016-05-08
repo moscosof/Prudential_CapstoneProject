@@ -1,5 +1,5 @@
 
-#Prudential Life Insurance Assesment
+#Prudential Life Insurance Assessment
 
 The purpose of this project is to predict the rating in the existing Prudential Life Insurance assessment. 
 If we can find out the significant attributes that determine the assessment, Prudential could streamline the process
